@@ -124,5 +124,52 @@ quickcheck! {
         }
         true
     }
+
+    fn check_vertical_packing(inline_size: Au, exclusions: Vec<Exclusion>) -> bool {
+        let areas = place(inline_size, exclusions);
+        for (i, a) in areas.iter().enumerate().rev() {
+            if a.origin.block == Au(0) {
+                continue
+            }
+            assert!(areas[0..i].iter().any(|b| {
+                a.origin.block == b.origin.block + b.exclusion.size.block
+            }))
+        }
+        true
+    }
+
+    fn check_left_float_rules(inline_size: Au, exclusions: Vec<Exclusion>) -> bool {
+        let areas = place(inline_size, exclusions);
+        for (i, a) in areas.iter().enumerate() {
+            if a.exclusion.side != Side::Left {
+                continue
+            }
+            for b in &areas[(i + 1)..] {
+                if b.exclusion.side != Side::Left {
+                    continue
+                }
+                assert!(b.origin.inline >= a.origin.inline + a.exclusion.size.inline ||
+                        b.origin.block >= a.origin.block + a.exclusion.size.block)
+            }
+        }
+        true
+    }
+
+    fn check_right_float_rules(inline_size: Au, exclusions: Vec<Exclusion>) -> bool {
+        let areas = place(inline_size, exclusions);
+        for (i, a) in areas.iter().enumerate() {
+            if a.exclusion.side != Side::Right {
+                continue
+            }
+            for b in &areas[(i + 1)..] {
+                if b.exclusion.side != Side::Right {
+                    continue
+                }
+                assert!(b.origin.inline + b.exclusion.size.inline <= a.origin.inline ||
+                        b.origin.block >= a.origin.block + a.exclusion.size.block)
+            }
+        }
+        true
+    }
 }
 

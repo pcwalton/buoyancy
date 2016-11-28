@@ -117,7 +117,6 @@ impl Exclusions {
     }
 
     pub fn place(&mut self, side: Side, size: &Size) -> Point {
-        //println!("place(side={:?}, size={:?}): {:?}", side, size, self);
         let block_position =
             self.bands
                 .lower_bound_with(|&band_block_start, band| {
@@ -128,37 +127,23 @@ impl Exclusions {
             Side::Left => -band.left,
             Side::Right => self.inline_size + band.right - size.inline,
         };
-        let origin = Point {
+        Point {
             inline: inline_position,
             block: block_position,
-        };
-        //println!("... placed at {:?}", origin);
-        origin
+        }
     }
 
-    #[inline(never)]
     pub fn exclude(&mut self, side: Side, size: &Size) {
-        //println!("exclude(side={:?}, size={:?}): {:?}", side, size, self);
         if size.inline == Au(0) || size.block == Au(0) {
             return
         }
 
         self.split(side, size);
 
-        /*let (ceiling_block_position, ceiling_band) = {
-            let inline_size = self.inline_size;
-            let &mut (ceiling_block_position, ref mut ceiling_band) =
-                self.bands
-                    .lower_bound_with_mut(|&band_block_start, band| {
-                        compare_inline_size(band_block_start, band, size, inline_size)
-                    }).expect("Exclusions::exclude(): Didn't find the ceiling?!");
-            ceiling_band.set(side, -size.inline);
-            (ceiling_block_position, *ceiling_band)
-        };*/
-
-        let (mut last_block_position, mut last_band) = (size.block, None);
+        let (mut last_block_position, mut last_band): (Au, Option<Band>) = (size.block, None);
         loop {
-            let (block_position, band) = match self.bands.get_with_mut(|block_position, band| {
+            let mut band_to_delete = None;
+            match self.bands.get_with_mut(|block_position, band| {
                 if last_block_position <= *block_position {
                     Ordering::Less
                 } else if last_block_position > *block_position + band.length {
@@ -169,31 +154,28 @@ impl Exclusions {
             }) {
                 Some(&mut (block_position, ref mut band)) if -band.get(side) <= size.inline => {
                     band.set(side, -size.inline);
-                    (block_position, *band)
+
+                    if let Some(ref last_band) = last_band {
+                        if band.left == last_band.left && band.right == last_band.right {
+                            band.length = band.length + last_band.length;
+                            band_to_delete = Some(last_block_position)
+                        }
+                    }
+
+                    last_block_position = block_position;
+                    last_band = Some(*band);
                 }
                 Some(_) | None => break,
-            };
-            // TODO(pcwalton): Merge
-            last_block_position = block_position;
-            last_band = Some(band)
-        }
-
-        /*{
-            let ceiling_band =
-                self.bands
-                    .get_mut(&ceiling_block_position)
-                    .expect("Exclusions::exclude(): Didn't find the ceiling band!");
-            if ceiling_block_position + ceiling_band.length != MAX_AU {
-                ceiling_band.length = size.block - ceiling_block_position
             }
-        }*/
 
-        //println!("... exclude done: {:?}", self);
+            // TODO(pcwalton): Remove without splaying.
+            if let Some(band_to_delete) = band_to_delete {
+                self.bands.remove(&band_to_delete);
+            }
+        }
     }
 
-    #[inline(never)]
     fn split(&mut self, side: Side, size: &Size) {
-        //println!("split(side={:?}, size={:?}): {:?}", side, size, self);
         let (floor, left_size, right_size) = {
             let &mut (upper_block_position, ref mut upper_band) =
                 self.bands.get_with_mut(|block_position, band| {
@@ -212,7 +194,6 @@ impl Exclusions {
         let lower_band_length = floor - size.block;
         let lower_band = Band::new(left_size, right_size, floor - size.block);
         self.bands.insert(size.block, lower_band);
-        //println!("... split done: {:?}", self);
     }
 }
 

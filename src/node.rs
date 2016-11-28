@@ -1,5 +1,3 @@
-use std::mem;
-
 #[derive(Clone)]
 pub struct Node<K, V> {
     pub key_value: (K, V),
