@@ -3,6 +3,9 @@ name = "floaty"
 version = "0.1.0"
 authors = ["Patrick Walton <pcwalton@mimiga.net>"]
 
+[dependencies]
+app_units = "0.3"
+
 [dev-dependencies]
 quickcheck = "0.4"
 rand = "0.3"

@@ -1,7 +1,17 @@
-use exclusions::{Au, Exclusions, Point, Side, Size};
-use quickcheck::{Arbitrary, Gen, StdGen};
+use app_units::Au;
+use exclusions::{Exclusions, Point, Side, Size};
+use quickcheck::{Arbitrary, Gen};
 use std::cmp;
 use std::i32;
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct InlineSize(Au);
+
+impl Arbitrary for InlineSize {
+    fn arbitrary<G: Gen>(gen: &mut G) -> InlineSize {
+        InlineSize(Au(i32::abs(Arbitrary::arbitrary(gen))))
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Exclusion {
@@ -14,8 +24,8 @@ impl Arbitrary for Exclusion {
         Exclusion {
             side: Arbitrary::arbitrary(gen),
             size: Size {
-                inline: Arbitrary::arbitrary(gen),
-                block: Arbitrary::arbitrary(gen),
+                inline: Au(i32::abs(Arbitrary::arbitrary(gen))),
+                block: Au(i32::abs(Arbitrary::arbitrary(gen))),
             },
         }
     }
@@ -24,15 +34,9 @@ impl Arbitrary for Exclusion {
 impl Arbitrary for Size {
     fn arbitrary<G: Gen>(gen: &mut G) -> Size {
         Size {
-            inline: Arbitrary::arbitrary(gen),
-            block: Arbitrary::arbitrary(gen),
+            inline: Au(Arbitrary::arbitrary(gen)),
+            block: Au(Arbitrary::arbitrary(gen)),
         }
-    }
-}
-
-impl Arbitrary for Au {
-    fn arbitrary<G: Gen>(gen: &mut G) -> Au {
-        Au(i32::abs(Arbitrary::arbitrary(gen)))
     }
 }
 
@@ -83,16 +87,15 @@ impl ExcludedArea {
     }
 }
 
-pub fn place(inline_size: Au, mut exclusion_info: Vec<Exclusion>) -> Vec<ExcludedArea> {
-    //println!("test::place()");
+pub fn place(inline_size: InlineSize, mut exclusion_info: Vec<Exclusion>) -> Vec<ExcludedArea> {
     let mut areas = Vec::with_capacity(exclusion_info.len());
-    let mut exclusions = Exclusions::new(inline_size);
+    let mut exclusions = Exclusions::new(inline_size.0);
     for exclusion in &mut exclusion_info {
-        exclusion.size.inline = cmp::min(exclusion.size.inline, inline_size);
+        exclusion.size.inline = cmp::min(exclusion.size.inline, inline_size.0);
         let origin = exclusions.place(exclusion.side, &exclusion.size);
         let exclusion_inline_size = match exclusion.side {
             Side::Left => origin.inline + exclusion.size.inline,
-            Side::Right => inline_size - origin.inline,
+            Side::Right => inline_size.0 - origin.inline,
         };
         exclusions.exclude(exclusion.side,
                            &Size::new(exclusion_inline_size, origin.block + exclusion.size.block));
@@ -102,17 +105,17 @@ pub fn place(inline_size: Au, mut exclusion_info: Vec<Exclusion>) -> Vec<Exclude
 }
 
 quickcheck! {
-    fn check_overflow(inline_size: Au, exclusions: Vec<Exclusion>) -> bool {
+    fn check_overflow(inline_size: InlineSize, exclusions: Vec<Exclusion>) -> bool {
         let areas = place(inline_size, exclusions);
         for area in areas {
             assert!(area.origin.block >= Au(0));
             assert!(area.origin.inline >= Au(0));
-            assert!(area.origin.inline + area.exclusion.size.inline <= inline_size);
+            assert!(area.origin.inline + area.exclusion.size.inline <= inline_size.0);
         }
         true
     }
 
-    fn check_overlap(inline_size: Au, exclusions: Vec<Exclusion>) -> bool {
+    fn check_overlap(inline_size: InlineSize, exclusions: Vec<Exclusion>) -> bool {
         let areas = place(inline_size, exclusions);
         for (i, a) in areas.iter().enumerate() {
             for b in &areas[(i + 1)..] {
@@ -125,7 +128,7 @@ quickcheck! {
         true
     }
 
-    fn check_vertical_packing(inline_size: Au, exclusions: Vec<Exclusion>) -> bool {
+    fn check_vertical_packing(inline_size: InlineSize, exclusions: Vec<Exclusion>) -> bool {
         let areas = place(inline_size, exclusions);
         for (i, a) in areas.iter().enumerate().rev() {
             if a.origin.block == Au(0) {
@@ -138,7 +141,7 @@ quickcheck! {
         true
     }
 
-    fn check_left_float_rules(inline_size: Au, exclusions: Vec<Exclusion>) -> bool {
+    fn check_left_float_rules(inline_size: InlineSize, exclusions: Vec<Exclusion>) -> bool {
         let areas = place(inline_size, exclusions);
         for (i, a) in areas.iter().enumerate() {
             if a.exclusion.side != Side::Left {
@@ -155,7 +158,7 @@ quickcheck! {
         true
     }
 
-    fn check_right_float_rules(inline_size: Au, exclusions: Vec<Exclusion>) -> bool {
+    fn check_right_float_rules(inline_size: InlineSize, exclusions: Vec<Exclusion>) -> bool {
         let areas = place(inline_size, exclusions);
         for (i, a) in areas.iter().enumerate() {
             if a.exclusion.side != Side::Right {

@@ -124,38 +124,6 @@ fn lower_bound_with<K, V, Q>(mut compare: Q, node: &Box<Node<K, V>>) -> Option<&
     }
 }
 
-fn lower_bound_with_mut<K, V, Q>(mut compare: Q, node: &mut Box<Node<K, V>>)
-                                 -> Option<&mut (K, V)>
-                                 where K: Ord, Q: FnMut(&K, &V) -> Ordering {
-    let mut node = &mut **node;
-    let Node {
-        ref mut key_value,
-        ref mut left,
-        ref mut right,
-        ..
-    } = *node;
-    match compare(&key_value.0, &key_value.1) {
-        Less => {
-            match *left {
-                Some(ref mut left) => {
-                    match lower_bound_with_mut(compare, left) {
-                        Some(key_value) => Some(key_value),
-                        None => Some(key_value),
-                    }
-                }
-                None => Some(key_value),
-            }
-        }
-        Greater => {
-            match *right {
-                Some(ref mut right) => lower_bound_with_mut(compare, right),
-                None => None,
-            }
-        }
-        Equal => Some(key_value),
-    }
-}
-
 impl<K: Ord, V> SplayMap<K, V> {
     pub fn new() -> SplayMap<K, V> {
         SplayMap { root: UnsafeCell::new(None), size: 0 }
@@ -166,9 +134,6 @@ impl<K: Ord, V> SplayMap<K, V> {
     pub fn into_iter(mut self) -> IntoIter<K, V> {
         IntoIter { cur: self.root_mut().take(), remaining: self.size }
     }
-
-    pub fn len(&self) -> usize { self.size }
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
 
     /// Clears the tree in O(1) extra space (including the stack). This is
     /// necessary to prevent stack exhaustion with extremely large trees.
@@ -181,13 +146,6 @@ impl<K: Ord, V> SplayMap<K, V> {
             // ignore, drop the values (and the node)
         }
         self.size = 0;
-    }
-
-    /// Return true if the map contains a value for the specified key
-    pub fn contains_key<Q: ?Sized>(&self, key: &Q) -> bool
-        where K: Borrow<Q>, Q: Ord,
-    {
-        self.get(key).is_some()
     }
 
     /// Return a reference to the value corresponding to the key
@@ -242,24 +200,6 @@ impl<K: Ord, V> SplayMap<K, V> {
         }
     }
 
-    pub fn get_with<Q>(&self, mut compare: Q) -> Option<(&K, &V)>
-                       where Q: FnMut(&K, &V) -> Ordering {
-        // See comment above in `get()`.
-        unsafe {
-            match *self.root.get() {
-                Some(ref mut root) => {
-                    splay_with(&mut compare, root);
-                    if compare(&root.key_value.0, &root.key_value.1) == Equal {
-                        Some((&root.key_value.0, &root.key_value.1))
-                    } else {
-                        None
-                    }
-                }
-                None => None,
-            }
-        }
-    }
-
     pub fn get_with_mut<Q>(&mut self, mut compare: Q) -> Option<&mut (K, V)>
                            where Q: FnMut(&K, &V) -> Ordering {
         match *self.root_mut() {
@@ -275,14 +215,9 @@ impl<K: Ord, V> SplayMap<K, V> {
         }
     }
 
-    pub fn lower_bound_with<Q>(&self, mut compare: Q) -> Option<&(K, V)>
+    pub fn lower_bound_with<Q>(&self, compare: Q) -> Option<&(K, V)>
                                where Q: FnMut(&K, &V) -> Ordering {
         self.root_ref().as_ref().and_then(|root| lower_bound_with(compare, root))
-    }
-
-    pub fn lower_bound_with_mut<Q>(&mut self, mut compare: Q) -> Option<&mut (K, V)>
-                                   where Q: FnMut(&K, &V) -> Ordering {
-        self.root_mut().as_mut().and_then(|root| lower_bound_with_mut(compare, root))
     }
 
     /// Insert a key-value pair from the map. If the key already had a value

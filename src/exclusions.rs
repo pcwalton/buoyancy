@@ -1,9 +1,9 @@
+use app_units::Au;
 use map::SplayMap;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::i32;
 use std::iter;
-use std::ops::{Add, Neg, Sub};
 
 const MAX_AU: Au = Au(i32::MAX);
 
@@ -68,30 +68,6 @@ impl Size {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
-pub struct Au(pub i32);
-
-impl Add<Au> for Au {
-    type Output = Au;
-    fn add(self, other: Au) -> Au {
-        Au(self.0 + other.0)
-    }
-}
-
-impl Sub<Au> for Au {
-    type Output = Au;
-    fn sub(self, other: Au) -> Au {
-        Au(self.0 - other.0)
-    }
-}
-
-impl Neg for Au {
-    type Output = Au;
-    fn neg(self) -> Au {
-        Au(-self.0)
-    }
-}
-
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Side {
     Left,
@@ -138,7 +114,7 @@ impl Exclusions {
             return
         }
 
-        self.split(side, size);
+        self.split(size);
 
         let (mut last_block_position, mut last_band): (Au, Option<Band>) = (size.block, None);
         loop {
@@ -168,14 +144,13 @@ impl Exclusions {
                 Some(_) | None => break,
             }
 
-            // TODO(pcwalton): Remove without splaying.
             if let Some(band_to_delete) = band_to_delete {
                 self.bands.remove(&band_to_delete);
             }
         }
     }
 
-    fn split(&mut self, side: Side, size: &Size) {
+    fn split(&mut self, size: &Size) {
         let (floor, left_size, right_size) = {
             let &mut (upper_block_position, ref mut upper_band) =
                 self.bands.get_with_mut(|block_position, band| {
@@ -191,7 +166,6 @@ impl Exclusions {
             upper_band.length = size.block - upper_block_position;
             (floor, upper_band.left, upper_band.right)
         };
-        let lower_band_length = floor - size.block;
         let lower_band = Band::new(left_size, right_size, floor - size.block);
         self.bands.insert(size.block, lower_band);
     }

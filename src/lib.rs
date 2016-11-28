@@ -1,5 +1,6 @@
 #![cfg_attr(test, feature(test))]
 
+extern crate app_units;
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
@@ -8,7 +9,7 @@ extern crate rand;
 #[cfg(test)]
 extern crate test as rust_test;
 
-mod exclusions;
+pub mod exclusions;
 mod map;
 mod node;
 #[cfg(test)]
