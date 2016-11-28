@@ -136,6 +136,7 @@ impl Exclusions {
         origin
     }
 
+    #[inline(never)]
     pub fn exclude(&mut self, side: Side, size: &Size) {
         //println!("exclude(side={:?}, size={:?}): {:?}", side, size, self);
         if size.inline == Au(0) || size.block == Au(0) {
@@ -190,6 +191,7 @@ impl Exclusions {
         //println!("... exclude done: {:?}", self);
     }
 
+    #[inline(never)]
     fn split(&mut self, side: Side, size: &Size) {
         //println!("split(side={:?}, size={:?}): {:?}", side, size, self);
         let (floor, left_size, right_size) = {

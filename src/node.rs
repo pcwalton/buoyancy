@@ -18,13 +18,19 @@ impl<K, V> Node<K, V> {
         })
     }
 
-    #[inline(always)]
     pub fn pop_left(&mut self) -> Option<Box<Node<K, V>>> {
-        mem::replace(&mut self.left, None)
+        self.left.take()
     }
 
-    #[inline(always)]
+    pub fn take_left(&mut self) -> Box<Node<K, V>> {
+        self.left.take().unwrap()
+    }
+
     pub fn pop_right(&mut self) -> Option<Box<Node<K, V>>> {
-        mem::replace(&mut self.right, None)
+        self.right.take()
+    }
+
+    pub fn take_right(&mut self) -> Box<Node<K, V>> {
+        self.right.take().unwrap()
     }
 }

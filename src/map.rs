@@ -44,9 +44,10 @@ fn splay_with<K, V, Q>(mut compare: Q, node: &mut Box<Node<K, V>>)
                 Equal => { break }
 
                 Less => {
-                    let mut left = match node.pop_left() {
-                        Some(left) => left, None => break
-                    };
+                    if node.left.is_none() {
+                        break
+                    }
+                    let mut left = node.take_left();
                     // rotate this node right if necessary
                     if compare(&left.key_value.0, &left.key_value.1) == Less {
                         // A bit odd, but avoids drop glue
@@ -54,12 +55,12 @@ fn splay_with<K, V, Q>(mut compare: Q, node: &mut Box<Node<K, V>>)
                         mem::swap(&mut left, node);
                         let none = mem::replace(&mut node.right, Some(left));
                         match mem::replace(&mut node.left, none) {
-                            Some(l) => { left = l; }
-                            None    => { break }
+                            None => break,
+                            Some(l) => left = l,
                         }
                     }
 
-                    *r = Some(mem::replace(node, left));
+                    mem::forget(mem::replace(r, Some(mem::replace(node, left))));
                     let tmp = r;
                     r = &mut tmp.as_mut().unwrap().left;
                 }
@@ -67,25 +68,23 @@ fn splay_with<K, V, Q>(mut compare: Q, node: &mut Box<Node<K, V>>)
                 // If you look closely, you may have seen some similar code
                 // before
                 Greater => {
-                    match node.pop_right() {
-                        None => { break }
-                        // rotate left if necessary
-                        Some(mut right) => {
-                            if compare(&right.key_value.0, &right.key_value.1) == Greater {
-                                mem::swap(&mut node.right, &mut right.left);
-                                mem::swap(&mut right, node);
-                                let none = mem::replace(&mut node.left,
-                                                         Some(right));
-                                match mem::replace(&mut node.right, none) {
-                                    Some(r) => { right = r; }
-                                    None    => { break }
-                                }
-                            }
-                            *l = Some(mem::replace(node, right));
-                            let tmp = l;
-                            l = &mut tmp.as_mut().unwrap().right;
+                    if node.right.is_none() {
+                        break
+                    }
+                    let mut right = node.take_right();
+                    // Rotate right if necessary.
+                    if compare(&right.key_value.0, &right.key_value.1) == Greater {
+                        mem::swap(&mut node.right, &mut right.left);
+                        mem::swap(&mut right, node);
+                        let none = mem::replace(&mut node.left, Some(right));
+                        match mem::replace(&mut node.right, none) {
+                            None => break,
+                            Some(r) => right = r,
                         }
                     }
+                    mem::forget(mem::replace(l, Some(mem::replace(node, right))));
+                    let tmp = l;
+                    l = &mut tmp.as_mut().unwrap().right;
                 }
             }
         }
@@ -94,8 +93,9 @@ fn splay_with<K, V, Q>(mut compare: Q, node: &mut Box<Node<K, V>>)
         mem::swap(r, &mut node.right);
     }
 
-    node.left = newright;
-    node.right = newleft;
+    // Optimization to avoid drop glue…
+    mem::forget(mem::replace(&mut node.left, newright));
+    mem::forget(mem::replace(&mut node.right, newleft));
 }
 
 fn splay_with_key<K, V, Q: ?Sized>(key: &Q, node: &mut Box<Node<K, V>>)
