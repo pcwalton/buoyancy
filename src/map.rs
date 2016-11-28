@@ -107,10 +107,12 @@ fn lower_bound_with<K, V, Q>(mut compare: Q, node: &Box<Node<K, V>>) -> Option<&
                              where K: Ord, Q: FnMut(&K, &V) -> Ordering {
     match compare(&node.key_value.0, &node.key_value.1) {
         Less => {
-            match node.left {
-                Some(ref left) => lower_bound_with(compare, left),
-                None => Some(&node.key_value),
+            if let Some(ref left) = node.left {
+                if let Some(key_value) = lower_bound_with(compare, left) {
+                    return Some(key_value)
+                }
             }
+            Some(&node.key_value)
         }
         Greater => {
             match node.right {
@@ -125,20 +127,32 @@ fn lower_bound_with<K, V, Q>(mut compare: Q, node: &Box<Node<K, V>>) -> Option<&
 fn lower_bound_with_mut<K, V, Q>(mut compare: Q, node: &mut Box<Node<K, V>>)
                                  -> Option<&mut (K, V)>
                                  where K: Ord, Q: FnMut(&K, &V) -> Ordering {
-    match compare(&node.key_value.0, &node.key_value.1) {
+    let mut node = &mut **node;
+    let Node {
+        ref mut key_value,
+        ref mut left,
+        ref mut right,
+        ..
+    } = *node;
+    match compare(&key_value.0, &key_value.1) {
         Less => {
-            match node.left {
-                Some(ref mut left) => lower_bound_with_mut(compare, left),
-                None => Some(&mut node.key_value),
+            match *left {
+                Some(ref mut left) => {
+                    match lower_bound_with_mut(compare, left) {
+                        Some(key_value) => Some(key_value),
+                        None => Some(key_value),
+                    }
+                }
+                None => Some(key_value),
             }
         }
         Greater => {
-            match node.right {
+            match *right {
                 Some(ref mut right) => lower_bound_with_mut(compare, right),
                 None => None,
             }
         }
-        Equal => Some(&mut node.key_value),
+        Equal => Some(key_value),
     }
 }
 
