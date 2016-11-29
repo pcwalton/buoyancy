@@ -1,3 +1,6 @@
+// Any copyright is dedicated to the Public Domain.
+// http://creativecommons.org/publicdomain/zero/1.0/
+
 use app_units::Au;
 use exclusions::{Exclusions, Point, Side, Size};
 use quickcheck::{Arbitrary, Gen};
@@ -92,7 +95,7 @@ pub fn place(inline_size: InlineSize, mut exclusion_info: Vec<Exclusion>) -> Vec
     let mut exclusions = Exclusions::new(inline_size.0);
     for exclusion in &mut exclusion_info {
         exclusion.size.inline = cmp::min(exclusion.size.inline, inline_size.0);
-        let origin = exclusions.place(exclusion.side, &exclusion.size);
+        let origin = exclusions.place(exclusion.side, &exclusion.size).origin;
         let exclusion_inline_size = match exclusion.side {
             Side::Left => origin.inline + exclusion.size.inline,
             Side::Right => inline_size.0 - origin.inline,
